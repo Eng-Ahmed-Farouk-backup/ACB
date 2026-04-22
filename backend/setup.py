@@ -36,7 +36,7 @@ def setup():
                     encrypted_password TEXT NOT NULL,
                     Email TEXT NOT NULL,
                     created_at DATETIME NOT NULL,
-                    bank_accounts TEXT NOT NULL,
+                    organizations TEXT NOT NULL,
                     cards TEXT NOT NULL,
                     super_admin BOOLEAN NOT NULL DEFAULT 0
                 )""")

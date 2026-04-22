@@ -38,6 +38,7 @@ async function register(){
         write_msg("You have registered, You will be redirected in 5 seconds", "success");
         setTimeout(function(){
             localStorage.setItem("token", data.token);
+            localStorage.setItem("user_id", data.user_id);
             window.location.href = "../dashboard/dashboard.html";
         }, 2000);
     }

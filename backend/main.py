@@ -100,7 +100,8 @@ def add_user(user: User):
         cursor.execute("INSERT INTO users (id, username, display_name, encrypted_password, Email, created_at, organizations, cards) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     (user_id, user.username, user.display_name, encrypt_password(user.password), user.email, datetime.datetime.now(), "[]", "[]"))
         conn.commit()
-        return {"token": create_token(user_id)}
+        print(encrypt_password(user.password))
+        return {"token": create_token(user_id), "user_id": user_id}
     except Exception as e:
         return {"error": str(e)}
     finally:
@@ -144,13 +145,18 @@ def login(login_request: LoginRequest):
         cursor.execute("SELECT id, encrypted_password FROM users WHERE username = ?", (login_request.username,))
         user = cursor.fetchone()
         if user:
+            print(encrypt_password(login_request.password))
+            print(user[1])
             stored_password = user[1]
             if bcrypt.checkpw(login_request.password.encode('utf-8'), stored_password.encode('utf-8')):
                 token = create_token(user[0])
                 return {"logged_in": True,"token":token, "user_id": user[0]}
+            else:
+                return {"logged_in": False, "error": "Invalid username or password"}
         else:
             return {"logged_in": False, "error": "Invalid username or password"}
     except Exception as e:
+        print(str(e))
         raise fastapi.HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
@@ -227,6 +233,22 @@ def get_bank_account(account_id: str):
     finally:
         conn.close()
 
+
+@app.get("/users/{user_id}/organizations/")
+def get_organizations(user_id: Optional[str] = None):
+    try:
+        conn = sqlite3.connect("database.db")
+        cursor = conn.cursor()
+        if user_id:
+            cursor.execute("SELECT organizations.id, organizations.name, organizations.balance, users.display_name, organizations.created_at FROM organizations JOIN users ON organizations.id = users.id and users.id = ?",(user_id,))
+        else:
+            cursor.execute("SELECT organizations.id, organizations.name, organizations.balance, users.display_name, organizations.created_at FROM organizations JOIN users ON organizations.id = users.id")
+        accounts = cursor.fetchall()
+        return [{"id": account[0], "name": account[1], "balance": account[2], "owner_name": account[3], "created_at": account[4]} for account in accounts]
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
 @app.post("/new_transaction/")
 def new_transaction(transaction: Transaction):
     try:
