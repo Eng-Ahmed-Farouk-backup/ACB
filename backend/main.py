@@ -171,7 +171,6 @@ def login(login_request: LoginRequest):
 
 @app.post("/new_organization/")
 def add_organization(form: Organization):
-    print("man")
     try:
         conn = sqlite3.connect("database.db")
         cursor = conn.cursor()
@@ -259,10 +258,7 @@ def get_members(account_id: str):
         cursor.execute("SELECT members FROM organizations where id = ?", (account_id,))
         members = cursor.fetchone()
         result = []
-        print(members)
-        print(members[0])
         for member in members[0][1:-1].split(","):
-            print(member)
             cursor.execute("SELECT username FROM users where id = ?", (member,))
             result.append(cursor.fetchone())
         if members:
@@ -297,7 +293,9 @@ def new_transaction(transaction: Transaction):
         cursor = conn.cursor()
         transaction_id = str(uuid.uuid4())
         cursor.execute("INSERT INTO transactions (id, title, sender_bank_account_id, sender_user_id, receiver_bank_account_id, amount, timestamp, notes, receipts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                       (transaction_id, transaction.title, transaction.sender_bank_account_id, transaction.sender_user_id, transaction.receiver_bank_account_id, transaction.amount, datetime.datetime.now()))
+                       (transaction_id, transaction.title, transaction.sender_bank_account_id, transaction.sender_user_id, transaction.receiver_bank_account_id, transaction.amount, datetime.datetime.now(), "[]", "[]"))
+        cursor.execute("UPDATE organizations SET balance = balance - ? WHERE id = ?", (transaction.amount, transaction.sender_bank_account_id))
+        cursor.execute("UPDATE organizations SET balance = balance + ? WHERE id = ?", (transaction.amount, transaction.receiver_bank_account_id))
         conn.commit()
         return {
             "transaction_id": transaction_id,
@@ -344,6 +342,19 @@ def get_organization_transactions(account_id: str):
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM transactions WHERE sender_bank_account_id = ? OR receiver_bank_account_id = ?", (account_id, account_id))
         transactions = cursor.fetchall()
+        for i in range(len(transactions)):
+            print(transactions[i])
+            transaction = list(transactions[i])
+            cursor.execute("SELECT name FROM organizations WHERE id = ?", (transaction[2],))
+            reciever_name = cursor.fetchone()
+            if reciever_name:
+                transaction[2] = reciever_name[0]
+            cursor.execute("SELECT name FROM organizations WHERE id = ?", (transaction[4],))
+            sender_name = cursor.fetchone()
+            if sender_name:
+                transaction[4] = sender_name[0]
+            transactions[i] = tuple(transaction)
+            print(transactions[i])
         return [{
             "id": transaction[0],
             "title": transaction[1],

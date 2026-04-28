@@ -12,17 +12,28 @@ async function load_organization(){
     })
     let data = await response.json();
     if (response.status == 200){
-        document.getElementById("organization-name").innerHTML = data.name;
+        org_name = data.name;
+        document.getElementById("organization-name").innerHTML = org_name;
         document.getElementById("balance").innerHTML = "Balance: " + data.balance + " $";
         load_members(org_id);
-        load_transactions(org_id);
+        load_transactions(org_id,org_name);
     }
     else{
         document.getElementById("org-name").innerHTML = "Failed to load organization details.";
     }
 }
 
-async function load_transactions(org_id){
+function logout() {
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('display_name');
+    localStorage.removeItem('user_id');
+    
+    window.location.href = "../login/login.html";
+}
+
+
+async function load_transactions(org_id,org_name){
     let response = await fetch(API_URL + "organization/" + org_id + "/transactions/",{
         method: "GET",
         headers: {
@@ -34,27 +45,38 @@ async function load_transactions(org_id){
         let transactions_div = document.getElementById("recent-transactions");
         transactions_div.innerHTML = "";
         if (data.length == 0){
-            transactions_div.innerHTML = `<div class="no-transactions">No transactions found for this organization</div>`;
+            transactions_div.innerHTML = `<div class="no-transactions"><p>No transactions found for this organization</p></div>`;
             return;
         }
-        for (let transaction of data){
+        let count = 0;
+        for (let transaction of data.toReversed()){
+            if (count>=5){
+                break;
+            }
             let transaction_div = document.createElement("div");
-            if (transaction.receiver_bank_account_id == org_id){
+            if (transaction.receiver_bank_account_id == org_name){
                 transaction_div.className = "transaction incoming";
             }
-            transaction_div.className = "transaction";
+            else {
+                transaction_div.className = "transaction";
+            }
             transaction_div.innerHTML = `
                 <h3>${transaction.amount} $</h3>
-                <p>${transaction.description}</p>
-                <p>From: ${transaction.sender_bank_account_id} To: ${transaction.receiver_bank_account_id}</p>
-                <p>${new Date(transaction.timestamp).toLocaleString()}</p>
+                <p class="title">${transaction.title}</p>
+                <p class="detail">From: ${transaction.sender_bank_account_id} To: ${transaction.receiver_bank_account_id}</p>
+                <p class="date">${new Date(transaction.timestamp).toLocaleString()}</p>
                 `
             transactions_div.appendChild(transaction_div);
+            count+=1;
         }
 
         
     }
 }
+
+document.getElementById("donate-btn").addEventListener("click", function() {
+    document.getElementById("add-transaction-modal").classList.add("show");
+});
 
 async function load_members(org_id){
     let response = await fetch(API_URL + "organization/" + org_id + "/members/",{
@@ -80,6 +102,269 @@ async function load_members(org_id){
     }
 }
 
+async function new_transaction(){
+    const amount = parseFloat(document.getElementById("transaction-amount").value);
+    const description = document.getElementById("transaction-description").value;
+    let urlParams = new URLSearchParams(window.location.search);
+    let org_id = urlParams.get("org_id");
+    const token = localStorage.getItem("token");
+    
+    if (!amount || amount <= 0) {
+        showToast("Please enter a valid amount", "error");
+        return;
+    }
+
+    try {
+        let response = await fetch(API_URL + "new_transaction/", {
+            method: "POST",
+            headers: {
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                title: description,
+                sender_bank_account_id: "outside",
+                sender_user_id: localStorage.getItem("user_id"),
+                receiver_bank_account_id: org_id,
+                amount: amount
+            })
+        })
+        let data = await response.json();
+        if (response.status == 200){
+            showToast("Transaction successful", "success");
+            load_organization();
+        }
+        else{
+            showToast(data.error || "Transaction failed", "error");
+        }
+    }
+    catch (error) {
+        console.error("Error:", error);
+        showToast("An error occurred while processing the transaction", "error");
+    }
+}
+
+function showToast(message, type) {
+    let toastContainer = document.getElementById("toast-container");
+    if (!toastContainer) {
+        toastContainer = document.createElement("div");
+        toastContainer.id = "toast-container";
+        toastContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        `;
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toast = document.createElement("div");
+    toast.style.cssText = `
+        background: ${type === "success" ? "#04e22c" : "#e40101"};
+        color: ${type === "success" ? "#3caa66" : "#922020"};
+        padding: 10px 20px;
+        margin-bottom: 10px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 500;
+        box-shadow: 0 5px 10px rgba(0,0,0,0.1);
+        animation: slideIn 0.3s ease;
+    `;
+    toast.innerHTML = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => toast.remove(), 5000);
+}
+
+document.getElementById("donate-btn").addEventListener("click", function() {
+    document.getElementById("add-transaction-modal").classList.add("show");
+})
+
+document.getElementById("create-transaction").addEventListener("click", function() {
+    document.getElementById("add-transaction-modal").classList.remove("show");
+    new_transaction();
+})
+
+document.querySelectorAll('.close-modal, .btn-cancel').forEach(btn => {
+    btn.addEventListener("click", function() {
+        document.getElementById("add-transaction-modal").classList.remove("show");
+    });
+});
+
+window.addEventListener("click", function(e) {
+    const modal = document.getElementById("add-transaction-modal");
+    if (e.target === modal) {
+        modal.classList.remove("show");
+    }
+});
+
 document.addEventListener("DOMContentLoaded", function() {
     load_organization();
-})
+    if (localStorage.getItem("user_id") != null){
+        document.getElementById("logout-btn").addEventListener("click", logout);
+    }
+    else {
+        document.getElementById("logout-btn").innerHTML = "Login"
+        document.getElementById("logout-btn").addEventListener("click", function (){
+            window.location.href = "../login/login.html"
+        })
+    }
+    setupTransferModal();
+
+});
+
+async function loadAccountsForTransfer() {
+    let token = localStorage.getItem("token");
+    let user_id = localStorage.getItem("user_id");
+    
+    try {
+        let response = await fetch(API_URL + "users/" + user_id + "/organizations/", {
+            method: "GET",
+            headers: {
+                "Authorization": "Token " + token
+            }
+        });
+        
+        let data = await response.json();
+        
+        let senderSelect = document.getElementById("sender-account");
+        let receiverSelect = document.getElementById("receiver-account");
+        
+        senderSelect.innerHTML = '<option value="">Select account</option>';
+        receiverSelect.innerHTML = '<option value="">Select account</option>';
+        
+        let outsideOption = document.createElement("option");
+        outsideOption.value = "outside";
+        outsideOption.textContent = "Outside Bank (External Transfer)";
+        senderSelect.appendChild(outsideOption);
+        
+        for (let org of data) {
+            let senderOption = document.createElement("option");
+            senderOption.value = org.id;
+            senderOption.textContent = `${org.name} (Balance: $${org.balance.toLocaleString()})`;
+            senderSelect.appendChild(senderOption);
+            
+            let receiverOption = document.createElement("option");
+            receiverOption.value = org.id;
+            receiverOption.textContent = `${org.name}`;
+            receiverSelect.appendChild(receiverOption);
+        }
+        
+        let urlParams = new URLSearchParams(window.location.search);
+        let currentOrgId = urlParams.get("org_id");
+        if (currentOrgId) {
+            receiverSelect.value = currentOrgId;
+        }
+    } catch (error) {
+        console.error("Error loading accounts:", error);
+    }
+}
+
+async function transferMoney() {
+    const title = document.getElementById("transfer-title").value;
+    const senderId = document.getElementById("sender-account").value;
+    const receiverId = document.getElementById("receiver-account").value;
+    const amount = parseFloat(document.getElementById("transfer-amount").value);
+    const token = localStorage.getItem("token");
+    const user_id = localStorage.getItem("user_id");
+    
+    if (!title) {
+        showToast("Please enter a title", "error");
+        return;
+    }
+    
+    if (!senderId) {
+        showToast("Please select a sender account", "error");
+        return;
+    }
+    
+    if (!receiverId) {
+        showToast("Please select a receiver account", "error");
+        return;
+    }
+    
+    if (senderId === receiverId && senderId !== "outside") {
+        showToast("Cannot transfer to the same account", "error");
+        return;
+    }
+    
+    if (!amount || amount <= 0) {
+        showToast("Please enter a valid amount", "error");
+        return;
+    }
+
+    if (senderId !== "outside") {
+        const senderSelect = document.getElementById("sender-account");
+        const selectedOption = senderSelect.options[senderSelect.selectedIndex];
+        const balanceMatch = selectedOption.text.match(/Balance: \$([\d,]+\.?\d*)/);
+        
+        if (balanceMatch) {
+            const currentBalance = parseFloat(balanceMatch[1].replace(/,/g, ''));
+            if (currentBalance < amount) {
+                showToast(`Insufficient funds! Current balance: $${currentBalance.toFixed(2)}`, "error");
+                return;
+            }
+        }
+    }
+    
+    document.getElementById("transfer-modal").classList.remove("show");
+    
+    try {
+        let response = await fetch(API_URL + "new_transaction/", {
+            method: "POST",
+            headers: {
+                "Authorization": "Token " + token,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                title: title,
+                sender_bank_account_id: senderId,
+                sender_user_id: user_id,
+                receiver_bank_account_id: receiverId,
+                amount: amount
+            })
+        });
+        
+        let data = await response.json();
+        
+        if (response.status == 200) {
+            showToast(`✅ Transferred $${amount.toFixed(2)} successfully!`, "success");
+            load_organization();
+            setTimeout(() => loadAccountsForTransfer(), 1000);
+        } else {
+            showToast(data.error || "Transfer failed", "error");
+        }
+    } catch (error) {
+        console.error("Transfer error:", error);
+        showToast("Connection error", "error");
+    }
+    
+    document.getElementById("transfer-title").value = "";
+    document.getElementById("transfer-amount").value = "";
+}
+
+function setupTransferModal() {
+    const transferBtn = document.getElementById("transfer-btn");
+    if (transferBtn) {
+        transferBtn.addEventListener("click", () => {
+            loadAccountsForTransfer();
+            document.getElementById("transfer-modal").classList.add("show");
+        });
+    }
+    
+    document.getElementById("confirm-transfer")?.addEventListener("click", () => {
+        transferMoney();
+    });
+    
+    document.querySelectorAll(".close-transfer-modal").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.getElementById("transfer-modal").classList.remove("show");
+        });
+    });
+    
+    window.addEventListener("click", (e) => {
+        const modal = document.getElementById("transfer-modal");
+        if (e.target === modal) {
+            modal.classList.remove("show");
+        }
+    });
+}
