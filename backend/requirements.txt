@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-python-mutlipart
+python-multipart
 pydantic
 python-dotenv
 sqlite3
