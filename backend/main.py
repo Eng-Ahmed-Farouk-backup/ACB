@@ -231,7 +231,7 @@ def approve_account(organization_name: str, token: Token):
     finally:
         conn.close()
 
-@app.get("/organizations/{account_id}")
+@app.get("/organizations/{account_id}/")
 def get_bank_account(account_id: str):
     try:
         conn = sqlite3.connect(database_path)
@@ -316,7 +316,7 @@ def new_transaction(transaction: Transaction):
     finally:
         conn.close()
 
-@app.get("/transactions/{transaction_id}")
+@app.get("/transactions/{transaction_id}/")
 def get_transaction(transaction_id: str):
     try:
         conn = sqlite3.connect(database_path)
@@ -398,7 +398,7 @@ def new_card(card: Card):
     finally:
         conn.close()
 
-@app.get("/cards/{card_id}")
+@app.get("/cards/{card_id}/")
 def get_card(card_id: str):
     try:
         conn = sqlite3.connect(database_path)
