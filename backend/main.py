@@ -18,6 +18,8 @@ ALGORITHM = os.getenv("algorithm")
 sqlite3.register_adapter(datetime.datetime, lambda dt: dt.isoformat())
 sqlite3.register_converter("timestamp", lambda v: datetime.datetime.fromisoformat(v.decode()))
 
+database_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db")
+
 def encrypt_password(password: str):
     salt = bcrypt.gensalt()
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
@@ -33,7 +35,7 @@ app.add_middleware(
 )
 
 def create_token(user_id: str):
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(database_path)
     cursor = conn.cursor()
     cursor.execute("SELECT username, display_name, organizations, id, Email, super_admin FROM users WHERE id = ?", (user_id,))
     user = cursor.fetchone()
@@ -102,7 +104,7 @@ class Token(pydantic.BaseModel):
 @app.post("/register/")
 def add_user(user: User):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         user_id = str(uuid.uuid4())
         cursor.execute("SELECT id FROM users WHERE username = ?", (user.username,))
@@ -121,14 +123,14 @@ def add_user(user: User):
 @app.get("/users/{user_id}/")
 def get_user(user_id: str):
     if user_id == "-1":
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, username, display_name, Email, created_at, super_admin FROM users")
         users = cursor.fetchall()
         print(users)
         return [{"id": user[0], "username": user[1], "display_name": user[2], "email": user[3], "created_at": user[4], "is_super_admin":user[5]} for user in users]
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, username, display_name, Email, created_at, super_admin FROM users WHERE id = ?", (user_id,))
         user = cursor.fetchone()
@@ -151,7 +153,7 @@ def get_user(user_id: str):
 @app.post("/login/")
 def login(login_request: LoginRequest):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, encrypted_password FROM users WHERE username = ?", (login_request.username,))
         user = cursor.fetchone()
@@ -175,7 +177,7 @@ def login(login_request: LoginRequest):
 @app.post("/new_organization/")
 def add_organization(form: Organization):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM pending_accounts WHERE name = ?", (form.name,))
         if cursor.fetchone():
@@ -195,7 +197,7 @@ def add_organization(form: Organization):
 @app.get("/pending_organizations/")
 def get_pending_accounts():
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT name, owner_id, description FROM pending_accounts")
         accounts = cursor.fetchall()
@@ -208,7 +210,7 @@ def get_pending_accounts():
 @app.post("/approve_organization/{organization_name}/")
 def approve_account(organization_name: str, token: Token):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         #token_data = decode_token(str(token.token))
         #if not token_data.get("is_super_admin"):
@@ -232,7 +234,7 @@ def approve_account(organization_name: str, token: Token):
 @app.get("/organizations/{account_id}")
 def get_bank_account(account_id: str):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM organizations where id = ?", (account_id,))
         account = cursor.fetchone()
@@ -256,7 +258,7 @@ def get_bank_account(account_id: str):
 @app.get("/organization/{account_id}/members/")
 def get_members(account_id: str):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT members FROM organizations where id = ?", (account_id,))
         members = cursor.fetchone()
@@ -276,7 +278,7 @@ def get_members(account_id: str):
 @app.get("/users/{user_id}/organizations/")
 def get_organizations(user_id: Optional[str] = None):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM organizations")
         organizations = cursor.fetchall()
@@ -292,7 +294,7 @@ def get_organizations(user_id: Optional[str] = None):
 @app.post("/new_transaction/")
 def new_transaction(transaction: Transaction):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         transaction_id = str(uuid.uuid4())
         cursor.execute("INSERT INTO transactions (id, title, sender_bank_account_id, sender_user_id, receiver_bank_account_id, amount, timestamp, notes, receipts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -317,7 +319,7 @@ def new_transaction(transaction: Transaction):
 @app.get("/transactions/{transaction_id}")
 def get_transaction(transaction_id: str):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, title, sender_bank_account_id, sender_user_id, receiver_bank_account_id, amount, timestamp FROM transactions WHERE id = ?", (transaction_id,))
         transaction = cursor.fetchone()
@@ -341,7 +343,7 @@ def get_transaction(transaction_id: str):
 @app.get("/organization/{account_id}/transactions/")
 def get_organization_transactions(account_id: str):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM transactions WHERE sender_bank_account_id = ? OR receiver_bank_account_id = ?", (account_id, account_id))
         transactions = cursor.fetchall()
@@ -375,7 +377,7 @@ def get_organization_transactions(account_id: str):
 @app.post("/new_card/")
 def new_card(card: Card):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         card_id = str(uuid.uuid4())
         cursor.execute("INSERT INTO cards (id, card_name, card_holder_id, card_number, expiration_date, cvv, bank_account_id, spending_limit, spent_money) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -399,7 +401,7 @@ def new_card(card: Card):
 @app.get("/cards/{card_id}")
 def get_card(card_id: str):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT id, card_name, card_holder_id, card_number, expiration_date, cvv, bank_account_id, spending_limit, spent_money FROM cards WHERE id = ?",
                        (card_id,))
@@ -426,7 +428,7 @@ def get_card(card_id: str):
 @app.post("/spend/")
 def spend(card: CardTransaction):
     try:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(database_path)
         cursor = conn.cursor()
         cursor.execute("SELECT spending_limit, spent_money, cvv, expiration_date FROM cards WHERE card_number = ?", (card.card_number,))
         card_data = cursor.fetchone()

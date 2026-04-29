@@ -8,7 +8,7 @@ sqlite3.register_adapter(datetime.datetime, lambda dt: dt.isoformat())
 sqlite3.register_converter("timestamp", lambda v: datetime.datetime.fromisoformat(v.decode()))
 
 def setup():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db"))
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -83,7 +83,7 @@ def setup():
     conn.close()
 
 def reset_database():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.abspath(__file__)), "database.db"))
     cursor = conn.cursor()
     cursor.execute("DROP TABLE IF EXISTS organizations")
     cursor.execute("DROP TABLE IF EXISTS bank_accounts")
