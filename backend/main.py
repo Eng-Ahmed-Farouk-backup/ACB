@@ -15,9 +15,13 @@ fake = faker.Faker()
 SECRET_KEY = os.getenv("secret_key")
 ALGORITHM = os.getenv("algorithm")
 <<<<<<< HEAD
+<<<<<<< HEAD
 stripe.api_key = os.getenv("SSK")
 =======
 >>>>>>> parent of 470b8af (added stripe integration)
+=======
+stripe.api_key = os.getenv("stripe_api_key")
+>>>>>>> parent of b0def64 (fixed payment issues)
 
 sqlite3.register_adapter(datetime.datetime, lambda dt: dt.isoformat())
 sqlite3.register_converter("timestamp", lambda v: datetime.datetime.fromisoformat(v.decode()))
