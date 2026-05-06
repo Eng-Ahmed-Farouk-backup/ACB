@@ -196,12 +196,49 @@ def add_organization(form: Organization):
         cursor.execute("SELECT name FROM organizations WHERE name = ?", (form.name,))
         if cursor.fetchone():
             raise fastapi.HTTPException(status_code=403, detail="Organization name already exists")
-        cursor.execute("INSERT INTO organizations (id, name, description, balance, owner_id, created_at, members, approver) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (uuid.uuid4(),form.name, form.description, 0.0, form.owner_id, datetime.datetime.now(), f"[{form.owner_id}]", "hi"))
+        cursor.execute("INSERT INTO pending_accounts (name, owner_id, description) VALUES (?, ?, ?)",
+                    (form.name, form.owner_id, form.description))
         conn.commit()
         return {"message": "Organization request submitted successfully"}
     except Exception as e:
         raise fastapi.HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/pending_organizations/")
+def get_pending_accounts():
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name, owner_id, description FROM pending_accounts")
+        accounts = cursor.fetchall()
+        return [{"name": account[0], "owner_id": account[1], "description": account[2]} for account in accounts]
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+@app.post("/approve_organization/{organization_name}/")
+def approve_account(organization_name: str, token: Token):
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        #token_data = decode_token(str(token.token))
+        #if not token_data.get("is_super_admin"):
+         #   raise fastapi.HTTPException(status_code=403, detail="Only super admins can approve accounts")
+        cursor.execute("SELECT name, owner_id, description FROM pending_accounts WHERE name = ?", (organization_name,))
+        account = cursor.fetchone()
+        if account:
+            account_id = str(uuid.uuid4())
+            cursor.execute("INSERT INTO organizations (id, name, description, balance, owner_id, created_at, members, approver) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                           (account_id, account[0], account[2], 0.0, account[1], datetime.datetime.now(), f"[{account[1]}]", "hi"))
+            cursor.execute("DELETE FROM pending_accounts WHERE name = ?", (organization_name,))
+            conn.commit()
+            return {"message": "Account approved and created successfully"}
+        else:
+            return {"error": "Pending account not found"}
+    except Exception as e:
+        return {"error": str(e)}
     finally:
         conn.close()
 
@@ -347,3 +384,165 @@ def get_organization_transactions(account_id: str):
         return {"error": str(e)}
     finally:
         conn.close()
+
+@app.post("/new_card/")
+def new_card(card: Card):
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        card_id = str(uuid.uuid4())
+        cursor.execute("INSERT INTO cards (id, card_name, card_holder_id, card_number, expiration_date, cvv, bank_account_id, spending_limit, spent_money) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                       (card_id, card.card_name, card.card_holder_id, fake.credit_card_number(), fake.credit_card_expire(), fake.credit_card_security_code(), card.bank_account_id, card.spending_limit, 0.0))
+        conn.commit()
+        return {
+            "card_id": card_id,
+            "card_name": card.card_name,
+            "card_holder_id": card.card_holder_id,
+            "bank_account_id": card.bank_account_id,
+            "card_number": fake.credit_card_number(),
+            "expiration_date": fake.credit_card_expire(),
+            "cvv": fake.credit_card_security_code(),
+            "spending_limit": card.spending_limit
+        }
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+@app.get("/cards/{card_id}/")
+def get_card(card_id: str):
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, card_name, card_holder_id, card_number, expiration_date, cvv, bank_account_id, spending_limit, spent_money FROM cards WHERE id = ?",
+                       (card_id,))
+        card = cursor.fetchone()
+        if card:
+            return {
+                "id": card[0],
+                "card_name": card[1],
+                "card_holder_id": card[2],
+                "card_number": card[3],
+                "expiration_date": card[4],
+                "cvv": card[5],
+                "bank_account_id": card[6],
+                "spending_limit": card[7],
+                "spent_money": card[8]
+            }
+        else:
+            return {"error": "Card not found"}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+@app.post("/spend/")
+def spend(card: CardTransaction):
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT spending_limit, spent_money, cvv, expiration_date FROM cards WHERE card_number = ?", (card.card_number,))
+        card_data = cursor.fetchone()
+        if card_data:
+            if card_data[2] != card.cvv:
+                return {"error": "Invalid CVV"}
+            if card_data[3] < datetime.datetime.now().strftime("%Y-%m-%d"):
+                return {"error": "Card has expired"}
+            if card_data[1] + card.amount > card_data[0]:
+                return {"error": "Spending limit exceeded"}
+            cursor.execute("UPDATE cards SET spent_money = spent_money + ? WHERE id = ?", (card.amount, card.card_id))
+            conn.commit()
+            return {"message": "Transaction successful"}
+        else:
+            return {"error": "Card not found"}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+
+@app.post("/stripe-checkout/")
+async def checkout(sc: StripeCheckout):
+    #token = sc.token
+    try:
+        #payload = decode_token(token)
+        session = stripe.checkout.Session.create(
+                line_items=[{
+                    "quantity": 1,
+                    "price_data": {
+                        "unit_amount": sc.amount,
+                        "currency": "usd",
+                        "product_data":{
+                            "name": f"Donation to Organization {sc.organization_id}"
+                        },
+                    }
+                }],
+                mode="payment",
+                metadata={
+                    "organization_id": sc.organization_id,
+                    "user_id": sc.user_id, # was payload["user_id"]
+                    "title": sc.title,
+                },
+                success_url=sc.sucess,
+                cancel_url=sc.fail
+            )
+        return {"url": session.url, "id": session.id}
+    except Exception as e:
+        print(str(e))
+        raise fastapi.HTTPException(status_code=500, detail=str(e))
+
+@app.post("/stripe-webhook/")
+async def webhook(request):
+    body = await request.body()
+    signiture = request.headers.get("Stripe-Signature")
+
+    try:
+        ev = stripe.Webhook.construct_event(
+            body, signiture, os.getenv("SWHK")
+        )
+    except ValueError:
+        raise fastapi.HTTPException(status_code=400)
+    except stripe.error.SignatureVerificationError:
+        raise fastapi.HTTPException(status_code=400)
+    
+    if body["type"] == "checkout.session.completed":
+        amount = body["data"]["object"]["amount_total"]/100
+        organization_id = body["data"]["object"]["metadata"]["organization_id"]
+        title = body["data"]["object"]["metadata"]["title"]
+        user_id = body["data"]["object"]["metadata"]["user_id"]
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        transaction_id = uuid.uuid4()
+        cursor.execute("INSERT INTO transactions (id, title, sender_bank_account_id, sender_user_id, receiver_bank_account_id, amount, timestamp, notes, receipts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                       (transaction_id, title, "outside", user_id, organization_id, amount, datetime.datetime.now(), "[]", "[]"))
+        cursor.execute("UPDATE organizations SET balance = balance + ? WHERE id = ?", (amount, organization_id))
+        conn.commit()
+        conn.close()
+    return {"status":"sucess"}
+
+
+
+@app.post("/stripe-webhook-thin/")
+async def webhook_thin(request):
+    body = await request.body()
+    signiture = request.headers.get("Stripe-Signature")
+
+    try:
+        ev = stripe.Webhook.construct_event(
+            body, signiture, os.getenv("SWHK-thin")
+        )
+    except ValueError:
+        raise fastapi.HTTPException(status_code=400)
+    except stripe.error.SignatureVerificationError:
+        raise fastapi.HTTPException(status_code=400)
+    
+    if body["type"] == "checkout.session.completed":
+        amount = body["data"]["object"]["amount_total"]/100
+        organization_id = body["data"]["object"]["metadata"]["organization_id"]
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE organizations SET balance = balance + ? WHERE id = ?", (amount, organization_id))
+        conn.commit()
+        conn.close()
+    return {"status":"sucess"}
+
