@@ -10,14 +10,12 @@ import bcrypt
 import jwt
 import os
 import faker
+import stripe
 
 fake = faker.Faker()
 SECRET_KEY = os.getenv("secret_key")
 ALGORITHM = os.getenv("algorithm")
-<<<<<<< HEAD
 stripe.api_key = os.getenv("SSK")
-=======
->>>>>>> parent of 470b8af (added stripe integration)
 
 sqlite3.register_adapter(datetime.datetime, lambda dt: dt.isoformat())
 sqlite3.register_converter("timestamp", lambda v: datetime.datetime.fromisoformat(v.decode()))
@@ -105,7 +103,6 @@ class CardTransaction(pydantic.BaseModel):
 class Token(pydantic.BaseModel):
     token: str
 
-<<<<<<< HEAD
 class StripeCheckout(pydantic.BaseModel):
     amount: int
     organization_id: str
@@ -115,8 +112,6 @@ class StripeCheckout(pydantic.BaseModel):
     sucess: str
     fail: str
 
-=======
->>>>>>> parent of 470b8af (added stripe integration)
 @app.post("/register/")
 def add_user(user: User):
     try:
@@ -466,7 +461,6 @@ def spend(card: CardTransaction):
         conn.close()
 
 
-<<<<<<< HEAD
 @app.post("/stripe-checkout/")
 async def checkout(sc: StripeCheckout):
     #token = sc.token
@@ -552,5 +546,3 @@ async def webhook_thin(request):
         conn.close()
     return {"status":"sucess"}
 
-=======
->>>>>>> parent of 470b8af (added stripe integration)

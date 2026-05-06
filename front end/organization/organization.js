@@ -119,7 +119,7 @@ async function new_transaction(){
     }
 
     try {
-        let response = await fetch(API_URL + "new_transaction/", {
+        let response = await fetch(API_URL + "stripe-checkout/", {
             method: "POST",
             headers: {
                 "Authorization": "Token " + token,
@@ -127,25 +127,17 @@ async function new_transaction(){
             },
             body: JSON.stringify({
                 title: description,
-<<<<<<< HEAD
                 token: token,
                 organization_id: org_id,
                 user_id: localStorage.getItem("user_id"),
                 amount: amount*100,
                 sucess: window.location.origin + "ACB/front%20end/organization/organization.html?org_id=" + org_id + "&status=sucess",
                 fail: window.location.origin + "ACB/front%20end/organization/organization.html?org_id=" + org_id + "&status=fail"
-=======
-                sender_bank_account_id: "outside",
-                sender_user_id: localStorage.getItem("user_id"),
-                receiver_bank_account_id: org_id,
-                amount: amount
->>>>>>> parent of 470b8af (added stripe integration)
             })
         })
         let data = await response.json();
         if (response.status == 200){
-            showToast("Transaction successful", "success");
-            load_organization();
+            window.location.href=data.url
         }
         else{
             showToast(data.error || "Transaction failed", "error");
