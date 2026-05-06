@@ -50,8 +50,7 @@
                         <div class="loading">Loading transactions ..</div>
                     </div>
                     <div class="donate">
-                        <button class="donate-btn" id="donate-btn">Donate</button>
-                        <button class="transfer-btn" id="transfer-btn">Transfer Between Accounts</button>
+                        <button class="transfer-btn" id="transfer-btn">Transfer</button>
                     </div>
                 </div>
                 <div id="error-state" class="error-container" style="display: none;">
@@ -60,28 +59,6 @@
                     <p>The organization you're looking for doesn't exist or you don't have access to it.</p>
                     <a href="../dashboard/dashboard.html" class="back-btn">Back to Dashboard</a>
                 </div>
-            </div>
-        </div>
-    </div>
-    <div id="add-transaction-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>New Transaction</h3>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label>Amount</label>
-                    <input type="number" id="transaction-amount" placeholder="0.00">
-                </div>
-                <div class="form-group">
-                    <label>Description</label>
-                    <input type="text" id="transaction-description" placeholder="Transaction description">
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-cancel">Cancel</button>
-                <button class="btn-submit" id="create-transaction">Create Transaction</button>
             </div>
         </div>
     </div>

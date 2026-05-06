@@ -102,52 +102,6 @@ async function load_members(org_id){
     }
 }
 
-async function new_transaction(){
-    const amount = parseFloat(document.getElementById("transaction-amount").value);
-    const description = document.getElementById("transaction-description").value;
-    let urlParams = new URLSearchParams(window.location.search);
-    let org_id = urlParams.get("org_id");
-    const token = localStorage.getItem("token");
-    
-    if (!amount || amount <= 0) {
-        showToast("Please enter a valid amount", "error");
-        return;
-    }
-    if (amount < 0.5){
-        showToast("Minimum donation amount is $0.5", "error");
-        return;
-    }
-
-    try {
-        let response = await fetch(API_URL + "stripe-checkout/", {
-            method: "POST",
-            headers: {
-                "Authorization": "Token " + token,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                title: description,
-                token: token,
-                organization_id: org_id,
-                user_id: localStorage.getItem("user_id"),
-                amount: amount*100,
-                sucess: window.location.origin + "ACB/front%20end/organization/organization.html?org_id=" + org_id + "&status=sucess",
-                fail: window.location.origin + "ACB/front%20end/organization/organization.html?org_id=" + org_id + "&status=fail"
-            })
-        })
-        let data = await response.json();
-        if (response.status == 200){
-            window.location.href=data.url
-        }
-        else{
-            showToast(data.error || "Transaction failed", "error");
-        }
-    }
-    catch (error) {
-        console.error("Error:", error);
-        showToast("An error occurred while processing the transaction", "error");
-    }
-}
 
 function showToast(message, type) {
     let toastContainer = document.getElementById("toast-container");
@@ -180,9 +134,6 @@ function showToast(message, type) {
     setTimeout(() => toast.remove(), 5000);
 }
 
-document.getElementById("donate-btn").addEventListener("click", function() {
-    document.getElementById("add-transaction-modal").classList.add("show");
-})
 
 document.getElementById("create-transaction").addEventListener("click", function() {
     document.getElementById("add-transaction-modal").classList.remove("show");
@@ -241,18 +192,7 @@ async function loadAccountsForTransfer() {
         outsideOption.value = "outside";
         outsideOption.textContent = "Outside Bank (External Transfer)";
         senderSelect.appendChild(outsideOption);
-        
-        for (let org of data) {
-            let senderOption = document.createElement("option");
-            senderOption.value = org.id;
-            senderOption.textContent = `${org.name} (Balance: $${org.balance.toLocaleString()})`;
-            senderSelect.appendChild(senderOption);
-            
-            let receiverOption = document.createElement("option");
-            receiverOption.value = org.id;
-            receiverOption.textContent = `${org.name}`;
-            receiverSelect.appendChild(receiverOption);
-        }
+        receiverSelect.appendChild(outsideOption.cloneNode(true));
         
         let urlParams = new URLSearchParams(window.location.search);
         let currentOrgId = urlParams.get("org_id");
@@ -287,7 +227,7 @@ async function transferMoney() {
         return;
     }
     
-    if (senderId === receiverId && senderId !== "outside") {
+    if (senderId === receiverId) {
         showToast("Cannot transfer to the same account", "error");
         return;
     }
