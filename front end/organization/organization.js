@@ -113,6 +113,10 @@ async function new_transaction(){
         showToast("Please enter a valid amount", "error");
         return;
     }
+    if (amount < 0.5){
+        showToast("Minimum donation amount is $0.5", "error");
+        return;
+    }
 
     try {
         let response = await fetch(API_URL + "new_transaction/", {
@@ -126,7 +130,6 @@ async function new_transaction(){
 <<<<<<< HEAD
                 token: token,
                 organization_id: org_id,
-<<<<<<< HEAD
                 user_id: localStorage.getItem("user_id"),
                 amount: amount*100,
                 sucess: window.location.origin + "ACB/front%20end/organization/organization.html?org_id=" + org_id + "&status=sucess",
@@ -137,11 +140,6 @@ async function new_transaction(){
                 receiver_bank_account_id: org_id,
                 amount: amount
 >>>>>>> parent of 470b8af (added stripe integration)
-=======
-                amount: amount,
-                sucess: window.location.origin + "/organization/organization.html?org_id=" + org_id + "&status=sucess",
-                fail: window.location.origin + "/organization/organization.html?org_id=" + org_id + "&status=fail"
->>>>>>> parent of b0def64 (fixed payment issues)
             })
         })
         let data = await response.json();
