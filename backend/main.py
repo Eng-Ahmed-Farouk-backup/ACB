@@ -108,7 +108,6 @@ class StripeCheckout(pydantic.BaseModel):
     organization_id: str
     title: str
     token: str
-    user_id: str
     sucess: str
     fail: str
 
@@ -463,10 +462,11 @@ def spend(card: CardTransaction):
 
 @app.post("/stripe-checkout/")
 async def checkout(sc: StripeCheckout):
-    #token = sc.token
+    token = sc.token
     try:
-        #payload = decode_token(token)
-        session = stripe.checkout.Session.create(
+        payload = decode_token(token)
+        if payload:
+            session = stripe.checkout.Session.create(
                 line_items=[{
                     "quantity": 1,
                     "price_data": {
@@ -480,7 +480,7 @@ async def checkout(sc: StripeCheckout):
                 mode="payment",
                 metadata={
                     "organization_id": sc.organization_id,
-                    "user_id": sc.user_id, # was payload["user_id"]
+                    "user_id": payload["user_id"],
                     "title": sc.title,
                 },
                 success_url=sc.sucess,
