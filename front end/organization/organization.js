@@ -193,39 +193,47 @@ document.addEventListener("DOMContentLoaded", function() {
         document.getElementById("logout-btn").addEventListener("click", function (){
             window.location.href = "../login/login.html"
         })}
-    setupWithdraw();
+    setupWithdraw(); // I want to sleep it's 4 am I WANT TO SLEEEEEEEEP
 });
 function setupWithdraw() {
     const withdrawBtn = document.getElementById("transfer-btn");
-    if (!withdrawBtn) return;
+    if (!withdrawBtn) {
+        console.error("Withdraw button not found");
+        return;
+    }
     const modal = document.getElementById("transfer-modal");
-    if (!modal) return;
-    withdrawBtn.addEventListener("click", () => {
+    if (!modal) {
+        console.error("Transfer modal not found");
+        return;}
+    withdrawBtn.removeEventListener("click", setupWithdrawClick);
+    function setupWithdrawClick() {
         const titleInput = document.getElementById("transfer-title");
         const amountInput = document.getElementById("withdraw-amount");
         if (titleInput) titleInput.value = "";
         if (amountInput) amountInput.value = "";
         modal.classList.add("show");
-    });
+    }
+    withdrawBtn.addEventListener("click", setupWithdrawClick);
     const confirmBtn = document.getElementById("confirm-withdraw");
     if (confirmBtn) {
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        newConfirmBtn.addEventListener("click", () => {
-            performWithdrawal();
-        });
+        confirmBtn.removeEventListener("click", performWithdrawal);
+        confirmBtn.addEventListener("click", performWithdrawal);
     }
     document.querySelectorAll(".close-withdraw-modal, .close-transfer-modal").forEach(btn => {
-        btn.addEventListener("click", () => {
+        btn.removeEventListener("click", closeModal);
+        function closeModal() {
             modal.classList.remove("show");
-        });
+        }
+        btn.addEventListener("click", closeModal);
     });
-    window.addEventListener("click", (e) => {
+    window.removeEventListener("click", outsideClick);
+    function outsideClick(e) {
         if (e.target === modal) {
             modal.classList.remove("show");
         }
-    });
-} // it's 3 AM
+    }
+    window.addEventListener("click", outsideClick);
+}
 async function performWithdrawal() {
     const title = document.getElementById("transfer-title").value;
     const amount = parseFloat(document.getElementById("withdraw-amount").value);
@@ -233,7 +241,6 @@ async function performWithdrawal() {
     const user_id = localStorage.getItem("user_id");
     const urlParams = new URLSearchParams(window.location.search);
     const org_id = urlParams.get("org_id");
-
     if (!title) {
         showToast("Please enter a title", "error");
         return;
@@ -242,14 +249,13 @@ async function performWithdrawal() {
         showToast("Please enter a valid amount", "error");
         return;
     }
-// I WANT TO SLEEEEEEEP
     try {
         let response = await fetch(API_URL + "new_transaction/", {
             method: "POST",
             headers: {
                 "Authorization": "Token " + token,
                 "Content-Type": "application/json"
-            },
+},
             body: JSON.stringify({
                 title: title,
                 sender_bank_account_id: org_id,
