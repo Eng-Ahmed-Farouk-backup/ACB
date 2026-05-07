@@ -4,7 +4,6 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![Railway](https://img.shields.io/badge/deployed%20on-Railway-131415.svg)](https://railway.app/)
 
-<img width="1366" height="642" alt="image" src="https://github.com/user-attachments/assets/d95a429d-2d6b-4068-a0ba-67bb9eb94ab7" />
 
 **This is a Platform system for Founders who wants to show their team members their organization Finance and turn it to a Financilly Transparent Organization**
 ---
