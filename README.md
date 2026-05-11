@@ -1,5 +1,8 @@
 # ACB - Organization Finances Management System
 
+<img width="1366" height="640" alt="image" src="https://github.com/user-attachments/assets/3930cfd1-74bf-4b52-830e-e0f32e782c86" />
+
+
 [![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green.svg)](https://fastapi.tiangolo.com/)
 [![Railway](https://img.shields.io/badge/deployed%20on-Railway-131415.svg)](https://railway.app/)
